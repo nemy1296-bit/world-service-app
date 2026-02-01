@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WORLD SERVICE</title>
+<style>
+body { font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; margin:0; padding:0; background: linear-gradient(to bottom,#e3f2fd,#ffffff); display:flex; flex-direction:column; min-height:100vh; color:#333; }
+header { display:flex; justify-content:center; align-items:center; padding:12px; background-color:#f5f5f5; box-shadow:0 2px 4px rgba(0,0,0,0.1);}
+header img{ height:60px;}
+.card{ background: rgba(255,255,255,0.95); padding:15px; margin:12px auto; border-radius:12px; width:90%; box-shadow:0 4px 8px rgba(0,0,0,0.1); flex-shrink:0; transition:0.2s;}
+.card:hover{box-shadow:0 6px 12px rgba(0,0,0,0.15);}
+button{ width:70%; padding:10px; font-size:15px; margin:6px auto; display:flex; align-items:center; justify-content:center; border:none; border-radius:8px; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.15); transition:0.2s;}
+button img{height:20px;margin-right:6px;}
+button:hover{filter:brightness(0.95); transform:scale(1.02);}
+.home-btn{background:#4CAF50; color:white; width:100px; margin:10px auto;}
+.presenza-entrata{background:#4CAF50;color:white;}
+.presenza-uscita{background:#f44336;color:white;}
+.presenza-inizio{background:#ff9800;color:white;}
+.presenza-fine{background:#03a9f4;color:white;}
+.mezzo-btn{background:#2196F3;color:white;}
+.scarico-btn{background:#9E9E9E;color:white;}
+.fine-btn{background:#3f51b5;color:white;}
+input,select{width:75%; padding:8px; margin:8px auto; display:block; border:1px solid #ccc; border-radius:6px;}
+#map{width:90%; height:200px; margin:10px auto; border-radius:12px; box-shadow:0 2px 4px rgba(0,0,0,0.1);}
+.hidden{display:none;}
+</style>
+</head>
+<body>
+
+<header>
+    <img src="https://worldservice.it/wp-content/uploads/2020/05/logo2_400.png" alt="Logo">
+</header>
+
+<!-- HOME -->
+<div class="card" id="home">
+    <button class="presenza-btn" onclick="show('presenza')"><img src="https://img.icons8.com/ios-filled/24/000000/check-in.png"/> PRESENZA</button>
+    <button class="mezzo-btn" onclick="openMezzo()"><img src="https://img.icons8.com/ios-filled/24/000000/delivery.png"/> MEZZO</button>
+</div>
+
+<!-- PRESENZA -->
+<div class="card hidden" id="presenza">
+    <h3>Presenza</h3>
+    <button onclick="scanQR('dip')"><img src="https://img.icons8.com/ios-filled/20/000000/qr-code.png"/> Scansiona QR Dipendente</button>
+    <input id="dip" placeholder="ID Dipendente" readonly>
+    <div>
+        <button class="presenza-entrata" onclick="salvaPresenza('ENTRATA')">✅ ENTRATA</button>
+        <button class="presenza-inizio" onclick="salvaPresenza('INIZIO PAUSA')">🕒 INIZIO PAUSA</button>
+        <button class="presenza-fine" onclick="salvaPresenza('FINE PAUSA')">⏹️ FINE PAUSA</button>
+        <button class="presenza-uscita" onclick="salvaPresenza('USCITA')">❌ USCITA</button>
+    </div>
+    <div id="map"></div>
+</div>
+
+<!-- MEZZO START -->
+<div class="card hidden" id="mezzoStart">
+    <h3>Avvio Mezzo</h3>
+    <button onclick="scanTarga()"><img src="https://img.icons8.com/ios-filled/20/000000/qr-code.png"/> Scansiona Targa</button>
+    <input id="targa" placeholder="Targa (manuale opzionale)">
+    <input id="autista" placeholder="Autista" readonly>
+    <input id="kmInizio" type="number" placeholder="KM Iniziali">
+    <div id="posMezzo"></div>
+    <button class="mezzo-btn" onclick="avviaMezzo()">SALVA</button>
+</div>
+
+<!-- MEZZO MENU -->
+<div class="card hidden" id="mezzoMenu">
+    <button class="scarico-btn" onclick="show('scarico')">+ AGGIUNGI SCARICO</button>
+    <button class="fine-btn" onclick="fineServizio()">🏁 FINE SERVIZIO</button>
+</div>
+
+<!-- SCARICO -->
+<div class="card hidden" id="scarico">
+    <h3>Scarico</h3>
+    <button class="scarico-btn" onclick="scegliScarico('TRASBORDO')">TRASBORDO SU MEZZO</button>
+    <button class="scarico-btn" onclick="scegliScarico('IMPIANTO')">SCARICO IMPIANTO</button>
+
+    <!-- Trasbordo -->
+    <div id="trasbordo" class="hidden">
+        <h4>Comune</h4>
+        <button onclick="scegliComune('VESCOVATO')">VESCOVATO</button>
+        <button onclick="scegliComune('BONEMERSE')">BONEMERSE</button>
+        <input id="kmScarico" type="number" placeholder="KM Scarico">
+    </div>
+
+    <!-- Impianto -->
+    <div id="impianto" class="hidden">
+        <h4>Scarico Impianto</h4>
+        <input id="cerImp" placeholder="CER (manuale)">
+        <input id="peso" placeholder="Peso (kg)">
+        <input type="file" id="foto">
+        <input id="kmScaricoI" type="number" placeholder="KM Scarico">
+    </div>
+
+    <button class="mezzo-btn" onclick="salvaScarico()">SALVA SCARICO</button>
+</div>
+
+<!-- HOME BUTTON -->
+<button class="home-btn" onclick="show('home')"><img src="https://img.icons8.com/ios-filled/24/000000/home.png"/> HOME</button>
+
+<script src="https://unpkg.com/jsqr/dist/jsQR.js"></script>
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbyaRvAcRMXvuif8K3uqYmpzi7b0GS3AwU6YYJ4_G39R5UqOgeTJq33IN9xz_xGeY5vS/exec";
+
+// Funzioni di utilità
+const show = id=>{
+    document.querySelectorAll('.card').forEach(c=>c.classList.add('hidden'));
+    document.getElementById(id).classList.remove('hidden');
+};
+
+function geo(cb){ navigator.geolocation.getCurrentPosition(p=>cb(`${p.coords.latitude},${p.coords.longitude}`)); }
+
+async function send(data){
+    try{
+        const response = await fetch(API_URL,{method:"POST",body:JSON.stringify(data)});
+        if(!response.ok){ alert("Errore invio dati"); console.error(await response.text()); }
+    }catch(err){ alert("Errore connessione o permessi"); console.error(err); }
+}
+
+// QR Scan
+async function scanQR(idInput){
+    const stream = await navigator.mediaDevices.getUserMedia({ video:{facingMode:"environment"}});
+    const video = document.createElement("video"); video.srcObject = stream; video.play();
+    const canvas = document.createElement("canvas"); const ctx = canvas.getContext("2d");
+    const interval = setInterval(()=>{
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        ctx.drawImage(video,0,0);
+        const img = ctx.getImageData(0,0,canvas.width,canvas.height);
+        const code = jsQR(img.data,canvas.width,canvas.height);
+        if(code){ document.getElementById(idInput).value=code.data;
+            stream.getTracks().forEach(t=>t.stop()); clearInterval(interval);
+            if(idInput==='dip') initMap();
+        }
+    },500);
+}
+
+// Targa Scan
+async function scanTarga(){
+    const stream = await navigator.mediaDevices.getUserMedia({ video:{facingMode:"environment"} });
+    const video = document.createElement("video"); video.srcObject = stream; video.play();
+    const canvas = document.createElement("canvas"); const ctx = canvas.getContext("2d");
+    const interval = setInterval(()=>{
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        ctx.drawImage(video,0,0);
+        const img = ctx.getImageData(0,0,canvas.width,canvas.height);
+        const code = jsQR(img.data, canvas.width, canvas.height);
+        if(code){ targa.value = code.data; autista.value = dip.value || "";
+            stream.getTracks().forEach(t=>t.stop()); clearInterval(interval); alert("Targa acquisita ✔️");
+        }
+    },500);
+}
+
+// Map
+function initMap(){ geo(pos=>{
+    const [lat,lng]=pos.split(","); document.getElementById('map').innerHTML=
+    `<iframe width="100%" height="200" style="border:0" loading="lazy" allowfullscreen src="https://maps.google.com/maps?q=${lat},${lng}&output=embed"></iframe>`;
+}); }
+
+// Presenza
+function salvaPresenza(evento){ geo(pos=>{
+    send({sheet:"PRESENZE", row:[new Date().toLocaleString(), dip.value, evento, pos]});
+    alert("Presenza salvata ✔️"); show("home");
+}); }
+
+// Mezzo
+function openMezzo() {
+    const mezzo = JSON.parse(localStorage.getItem('mezzo') || '{}');
+    if (!mezzo.avviato) show('mezzoStart');
+    else show('mezzoMenu');
+}
+
+function avviaMezzo() {
+    if (!targa.value || !kmInizio.value) { alert("Scansiona targa e inserisci KM iniziali"); return; }
+    const mezzo = { targa:targa.value, autista:autista.value, kmInizio:kmInizio.value, avviato:true };
+    localStorage.setItem('mezzo', JSON.stringify(mezzo));
+    geo(pos=>{
+        send({sheet:"MEZZI", row:[new Date().toLocaleString(), targa.value, autista.value, kmInizio.value,"",pos]});
+        alert("Mezzo in carico ✔️"); show('home');
+    });
+}
+
+// Scarico
+let tipoScarico="", comuneScelto="";
+function scegliScarico(tipo){
+    tipoScarico=tipo;
+    document.getElementById('trasbordo').classList.add('hidden');
+    document.getElementById('impianto').classList.add('hidden');
+    if(tipo==="TRASBORDO"){ document.getElementById('trasbordo').classList.remove('hidden'); }
+    else{ document.getElementById('impianto').classList.remove('hidden'); }
+}
+function scegliComune(comune){
+    comuneScelto=comune;
+    document.querySelectorAll("#trasbordo button").forEach(b=>b.style.display="none");
+}
+
+// CER automatico
+function calcolaCER(comune){
+    const day = new Date().getDay(); // 0=Dom,1=Lun,6=Sab
+    if(comune==="VESCOVATO"){
+        switch(day){case 1:return"20 02 01 (Verde)";case 2:return"20 01 08 (Umido)";case 3:return"20 01 01 (Carta)";case 4:return"20 01 02 (Vetro)";case 5:return"20 01 39 (Plastica)";case 6:return"20 03 01 (Indifferenziato)";default:return"";}
+    }
+    if(comune==="BONEMERSE"){
+        switch(day){case 1:return"20 01 08 (Umido)";case 2:return"20 01 01 (Carta)";case 3:return"20 01 08 (Umido)";case 4:return"20 01 39 (Plastica)";case 5:return"20 03 01 (Secco)";default:return"";}
+    }
+    return "";
+}
+
+// Salva scarico
+async function salvaScarico(){
+    geo(pos=>{
+        if(tipoScarico==="TRASBORDO"){
+            let cerAutomatico = calcolaCER(comuneScelto);
+            send({sheet:"SCARICHI", row:[new Date().toLocaleString(), tipoScarico, comuneScelto, cerAutomatico, kmScarico.value,"","",pos]});
+        } else if(tipoScarico==="IMPIANTO"){
+            send({sheet:"SCARICHI", row:[new Date().toLocaleString(), tipoScarico,"",cerImp.value,kmScaricoI.value,peso.value,foto.value,pos]});
+        }
+        // RESET COMPLETO
+        kmScarico.value=""; kmScaricoI.value=""; peso.value=""; cerImp.value=""; foto.value="";
+        tipoScarico=""; comuneScelto="";
+        document.getElementById('trasbordo').classList.add('hidden'); document.getElementById('impianto').classList.add('hidden');
+        alert("I dati sono stati salvati ✔️"); show('mezzoMenu');
+    });
+}
+
+// Fine servizio
+function fineServizio(){
+    const m=JSON.parse(localStorage.getItem('mezzo')||'{}');
+    if(!m.avviato){ alert("Nessun mezzo in corso"); return; }
+    const kmF=prompt("Inserisci KM finali");
+    if(!kmF || Number(kmF)<Number(m.kmInizio)){ alert("KM finali non validi"); return; }
+    geo(pos=>{
+        send({sheet:"MEZZI", row:[new Date().toLocaleString(), m.targa, m.autista,"",kmF,pos]});
+        localStorage.removeItem('mezzo'); alert("Fine servizio salvata ✔️"); show("home");
+    });
+}
+</script>
+</body>
+</html>
